@@ -12,9 +12,20 @@ import { prettyFormat } from './pretty.js';
 import { formatDuration, formatTokens } from './utils.js';
 import type { AgentTrace, TraceEvent } from './types.js';
 
+// FIX: sleep() moved to top of file — before any function that calls it.
+// While function declarations are hoisted in JS, keeping helpers at the top
+// is clearer and avoids confusion in strict ES module contexts.
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const args = process.argv.slice(2);
 const command = args[0];
 const filePath = args[1] ?? '.agent-trace.json';
+
+// FIX: honour NO_COLOR env var and non-TTY stdout, matching the behaviour
+// in pretty.ts so CLI output is consistent with the logger's pretty output.
+const NO_COLOR = !process.stdout?.isTTY || Boolean(process.env['NO_COLOR']);
 
 const C = {
   reset:  '\x1b[0m',
@@ -28,6 +39,7 @@ const C = {
 };
 
 function c(code: string, text: string): string {
+  if (NO_COLOR) return text;
   return code + text + C.reset;
 }
 
@@ -88,11 +100,11 @@ function cmdInspect(path: string): void {
   const errorEvents = events.filter(e => e.type === 'agent.error');
 
   const totalTokens = llmEvents.reduce((acc, e) => {
-    const t = e.data.tokens as { total?: number } | undefined;
+    const t = e.data['tokens'] as { total?: number } | undefined;
     return acc + (t?.total ?? 0);
   }, 0);
 
-  const toolSuccess = toolEvents.filter(e => e.data.success !== false).length;
+  const toolSuccess = toolEvents.filter(e => e.data['success'] !== false).length;
 
   console.log('');
   console.log(c(C.bold, '  Trace Summary'));
@@ -178,8 +190,4 @@ switch (command) {
     console.error(c(C.red, `Unknown command: ${command}`));
     printHelp();
     process.exit(1);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }

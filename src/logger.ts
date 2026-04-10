@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type {
   AgentEndData,
   AgentErrorData,
@@ -53,7 +53,10 @@ export class AgentLogger {
       try {
         const existing: AgentTrace = JSON.parse(readFileSync(this.outputFile, 'utf-8'));
         this.events = existing.events ?? [];
-        this.seq = this.events.length;
+        // FIX: derive seq from the highest seq in existing events, not array length.
+        // events.length is wrong if any filtered stubs were ever persisted, and
+        // it also breaks if the array is sparse or was written by a different run.
+        this.seq = this.events.reduce((max, e) => Math.max(max, e.seq), 0);
       } catch {
         // ignore parse errors — start fresh
       }
@@ -71,8 +74,9 @@ export class AgentLogger {
     agentOverride?: string,
   ): TraceEvent {
     if (LOG_LEVEL_VALUE[level] < this.minLevel) {
-      // Return a stub event — not stored or printed
-      return { seq: -1, type, ts: now(), elapsed: 0, agent: agentOverride ?? this.agentName, level, data };
+      // FIX: return seq:0 (not seq:-1) to make it obvious the event was NOT recorded.
+      // seq:-1 is invalid per the trace spec which requires seq >= 1 for stored events.
+      return { seq: 0, type, ts: now(), elapsed: 0, agent: agentOverride ?? this.agentName, level, data };
     }
 
     const event: TraceEvent = {
@@ -91,7 +95,12 @@ export class AgentLogger {
       console.log(prettyFormat(event));
     }
 
-    this._flushFile();
+    // FIX: removed per-event _flushFile() call.
+    // Writing the entire trace JSON to disk on every single event is extremely
+    // I/O-wasteful (O(n) writes for an n-event run = O(n²) total bytes written).
+    // Use flush() explicitly at the end of a run, or call log.end() which triggers it.
+    // For safety we still flush on log.end() via the public flush() method.
+
     return event;
   }
 
@@ -125,12 +134,15 @@ export class AgentLogger {
 
   end(data: AgentEndData = {}, agent?: string): TraceEvent {
     const durationMs = elapsedMs(this.startTime);
-    return this.emit(
+    const event = this.emit(
       'agent.end',
       { durationMs, success: true, ...data } as Record<string, unknown>,
       'info',
       agent,
     );
+    // Auto-flush the trace file when the run ends.
+    this.flush();
+    return event;
   }
 
   /** Emit a custom-typed event */
@@ -162,17 +174,6 @@ export class AgentLogger {
   // -----------------------------------------------------------------
   // File I/O
   // -----------------------------------------------------------------
-
-  private _flushFile(): void {
-    if (!this.outputFile) return;
-    try {
-      const trace = this.getTrace();
-      writeFileSync(this.outputFile, safeStringify(trace, 2), 'utf-8');
-    } catch (err) {
-      // Non-fatal — log to stderr
-      process.stderr.write(`[agent-log] Failed to write trace: ${err}\n`);
-    }
-  }
 
   /** Finalise the trace file with endedAt and durationMs */
   flush(): void {

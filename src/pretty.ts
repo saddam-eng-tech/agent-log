@@ -38,10 +38,15 @@ const TYPE_COLOR: Record<string, string> = {
   'tool.call':     C.tool,
 };
 
-const NO_COLOR = !process.stdout?.isTTY || process.env.NO_COLOR;
+// FIX: evaluate NO_COLOR lazily via a function instead of a module-level constant.
+// A module-level constant is evaluated once at import time, so setting NO_COLOR
+// after the module loads (e.g. in tests) would have no effect.
+function isNoColor(): boolean {
+  return !process.stdout?.isTTY || Boolean(process.env['NO_COLOR']);
+}
 
 function color(code: string, text: string): string {
-  if (NO_COLOR) return text;
+  if (isNoColor()) return text;
   return code + text + C.reset;
 }
 
@@ -55,46 +60,46 @@ function formatData(event: TraceEvent): string {
 
   switch (event.type) {
     case 'agent.start': {
-      if (d.input != null) {
-        const s = typeof d.input === 'string' ? d.input : JSON.stringify(d.input);
+      if (d['input'] != null) {
+        const s = typeof d['input'] === 'string' ? d['input'] : JSON.stringify(d['input']);
         parts.push(`input: ${color(C.dim, `"${truncate(s, 60)}"`)}`);
       }
       break;
     }
     case 'llm.call': {
-      if (d.model) parts.push(color(C.bold, String(d.model)));
-      if (d.tokens && typeof d.tokens === 'object') {
-        const t = d.tokens as Record<string, number>;
-        if (t.input != null && t.output != null)
-          parts.push(`${formatTokens(t.input)}→${formatTokens(t.output)} tokens`);
+      if (d['model']) parts.push(color(C.bold, String(d['model'])));
+      if (d['tokens'] && typeof d['tokens'] === 'object') {
+        const t = d['tokens'] as Record<string, number>;
+        if (t['input'] != null && t['output'] != null)
+          parts.push(`${formatTokens(t['input'])}→${formatTokens(t['output'])} tokens`);
       }
-      if (d.durationMs != null) parts.push(color(C.muted, `(${formatDuration(Number(d.durationMs))})`));
+      if (d['durationMs'] != null) parts.push(color(C.muted, `(${formatDuration(Number(d['durationMs']))})`));
       break;
     }
     case 'tool.call': {
-      if (d.name) parts.push(color(C.bold, String(d.name)));
-      if (d.success === true) parts.push(color(C.end, '✓'));
-      if (d.success === false) parts.push(color(C.error, '✗'));
-      if (d.durationMs != null) parts.push(color(C.muted, `(${formatDuration(Number(d.durationMs))})`));
+      if (d['name']) parts.push(color(C.bold, String(d['name'])));
+      if (d['success'] === true) parts.push(color(C.end, '✓'));
+      if (d['success'] === false) parts.push(color(C.error, '✗'));
+      if (d['durationMs'] != null) parts.push(color(C.muted, `(${formatDuration(Number(d['durationMs']))})`));
       break;
     }
     case 'agent.step': {
-      if (d.step) parts.push(color(C.dim, String(d.step)));
-      if (d.content) parts.push(`"${truncate(String(d.content), 80)}"`);
+      if (d['step']) parts.push(color(C.dim, String(d['step'])));
+      if (d['content']) parts.push(`"${truncate(String(d['content']), 80)}"`);
       break;
     }
     case 'agent.handoff': {
-      if (d.from && d.to) parts.push(`${d.from} → ${d.to}`);
+      if (d['from'] && d['to']) parts.push(`${d['from']} → ${d['to']}`);
       break;
     }
     case 'agent.error': {
-      if (d.message) parts.push(color(C.error, truncate(String(d.message), 80)));
-      if (d.retrying) parts.push(color(C.warn, `retrying (attempt ${d.attempt ?? '?'})`));
+      if (d['message']) parts.push(color(C.error, truncate(String(d['message']), 80)));
+      if (d['retrying']) parts.push(color(C.warn, `retrying (attempt ${d['attempt'] ?? '?'})`));
       break;
     }
     case 'agent.end': {
-      if (d.durationMs != null) parts.push(color(C.bold, formatDuration(Number(d.durationMs))));
-      if (d.success === false) parts.push(color(C.error, 'FAILED'));
+      if (d['durationMs'] != null) parts.push(color(C.bold, formatDuration(Number(d['durationMs']))));
+      if (d['success'] === false) parts.push(color(C.error, 'FAILED'));
       break;
     }
     default: {
