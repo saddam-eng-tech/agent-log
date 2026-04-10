@@ -5,7 +5,6 @@
 
 [![npm version](https://img.shields.io/npm/v/agent-log)](https://npmjs.com/package/agent-log)
 [![license](https://img.shields.io/npm/l/agent-log)](LICENSE)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/agent-log)](https://bundlephobia.com/package/agent-log)
 
 ---
 
