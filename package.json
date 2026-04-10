@@ -1,0 +1,63 @@
+{
+  "name": "agent-log",
+  "version": "0.1.0",
+  "description": "Zero-config, local-first structured logger for AI agents",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "bin": {
+    "agent-log": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "TRACE_FORMAT.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts src/cli.ts --format esm,cjs --dts --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run test:run"
+  },
+  "keywords": [
+    "agent",
+    "llm",
+    "observability",
+    "tracing",
+    "logger",
+    "ai",
+    "openai",
+    "langchain",
+    "debug",
+    "local-first"
+  ],
+  "author": "Saddam",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saddam-eng-tech/agent-log.git"
+  },
+  "homepage": "https://github.com/saddam-eng-tech/agent-log#readme",
+  "bugs": {
+    "url": "https://github.com/saddam-eng-tech/agent-log/issues"
+  }
+}
